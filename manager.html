@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yönetici Ekranı</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            background-color: #007bff;
+            color: white;
+            padding: 15px;
+        }
+        h2 {
+            margin-top: 30px;
+            color: #007bff;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #fff;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .stats-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .stats-item {
+            font-size: 18px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Yönetici İstatistikleri</h1>
+
+    <div class="stats-container">
+        <h2>Mağaza Sipariş Sayıları</h2>
+        <ul id="storeStats">
+            <li class="stats-item">Veriler yükleniyor...</li>
+        </ul>
+
+        <h2>Kurye Teslimat İstatistikleri</h2>
+        <ul id="courierStats">
+            <li class="stats-item">Veriler yükleniyor...</li>
+        </ul>
+    </div>
+
+    <footer>
+        © 2024 Restoran Yönetim Sistemi
+    </footer>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:3000');
+
+        // WebSocket bağlantısı açıldığında, istatistikleri talep et
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'GET_STATS' }));
+        };
+
+        // WebSocket'ten gelen mesajları işle
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'STATS') {
+                // Mağaza istatistiklerini göster
+                const storeStatsList = document.getElementById('storeStats');
+                storeStatsList.innerHTML = ''; // Listeyi temizle
+                for (const store in data.storeStats) {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'stats-item';
+                    listItem.innerHTML = `<span>${store}</span><span>${data.storeStats[store]} sipariş</span>`;
+                    storeStatsList.appendChild(listItem);
+                }
+
+                // Kurye istatistiklerini göster
+                const courierStatsList = document.getElementById('courierStats');
+                courierStatsList.innerHTML = ''; // Listeyi temizle
+                for (const courier in data.courierStats) {
+                    const stats = data.courierStats[courier];
+                    const listItem = document.createElement('li');
+                    listItem.className = 'stats-item';
+                    listItem.innerHTML = `<span>${courier}</span><span>${stats.total_deliveries} teslimat</span>`;
+                    courierStatsList.appendChild(listItem);
+                }
+            }
+        };
+    </script>
+
+</body>
+</html>

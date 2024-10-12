@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kurye Ekranı</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .order-section {
+            width: 45%;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .order-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .order-list li {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .order-details {
+            flex-grow: 1;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .action-buttons button {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .action-buttons button.deliver {
+            background-color: #28a745;
+            color: white;
+        }
+        .action-buttons button.cancel {
+            background-color: #dc3545;
+            color: white;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Kurye Siparişleri Ekranı</h1>
+
+    <div class="container">
+        <!-- Genel Siparişler Listesi -->
+        <section class="order-section">
+            <h2>Genel Siparişler</h2>
+            <ul id="generalOrderList" class="order-list"></ul>
+        </section>
+
+        <!-- Kurye Siparişleri -->
+        <section class="order-section">
+            <h2>Kurye Siparişleri</h2>
+            <ul id="courierOrderList" class="order-list"></ul>
+        </section>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:3000');
+
+        // Sayfa yüklendiğinde mevcut siparişleri al
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ type: 'GET_CURRENT_ORDERS' }));
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'CURRENT_ORDERS') {
+                updateGeneralOrderList(data.orders);
+            } else if (data.type === 'COURIER_ORDERS') {
+                updateCourierOrderList(data.orders);
+            } else if (data.type === 'ORDER_ADDED') {
+                // Yeni sipariş eklendiğinde listeyi güncelle
+                updateGeneralOrderList([data.order]);
+            } else if (data.type === 'ORDER_TAKEN') {
+                // Sipariş alındığında listeyi güncelle
+                updateCourierOrderList([data.order]);
+            } else if (data.type === 'ORDER_DELIVERED' || data.type === 'ORDER_CANCELLED') {
+                // Sipariş teslim edildi veya iptal edildiğinde listeyi güncelle
+                updateGeneralOrderList([data.order]);
+                updateCourierOrderList([]); // Kurye siparişlerini temizle
+            }
+        };
+
+        function updateGeneralOrderList(orders) {
+            const generalOrderList = document.getElementById('generalOrderList');
+            generalOrderList.innerHTML = ''; // Liste temizle
+
+            orders.forEach(order => {
+                const listItem = createOrderListItem(order);
+                generalOrderList.appendChild(listItem);
+            });
+        }
+
+        function updateCourierOrderList(orders) {
+            const courierOrderList = document.getElementById('courierOrderList');
+            courierOrderList.innerHTML = ''; // Liste temizle
+
+            orders.forEach(order => {
+                const listItem = createOrderListItem(order);
+
+                const actionButtons = createActionButtons(order);
+                listItem.appendChild(actionButtons);
+
+                courierOrderList.appendChild(listItem);
+            });
+        }
+
+        function createOrderListItem(order) {
+            const listItem = document.createElement('li');
+            listItem.className = 'order-item';
+            listItem.innerHTML = `
+                <div class="order-details">
+                    <strong>Sipariş ${order.id}</strong><br>
+                    <span>Adres: ${order.address}</span><br>
+                    <span>Mağaza: ${order.store}</span><br>
+                    <span>Durum: ${order.status}</span>
+                </div>
+            `;
+            return listItem;
+        }
+
+        function createActionButtons(order) {
+            const actionButtons = document.createElement('div');
+            actionButtons.className = 'action-buttons';
+
+            const deliverButton = document.createElement('button');
+            deliverButton.className = 'deliver';
+            deliverButton.textContent = 'Teslim Et';
+            deliverButton.onclick = () => {
+                if (confirm('Bu siparişi teslim etmek istediğinizden emin misiniz?')) {
+                    ws.send(JSON.stringify({ type: 'DELIVER_ORDER', id: order.id }));
+                }
+            };
+
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'cancel';
+            cancelButton.textContent = 'İptal Et';
+            cancelButton.onclick = () => {
+                if (confirm('Bu siparişi iptal etmek istediğinizden emin misiniz?')) {
+                    ws.send(JSON.stringify({ type: 'CANCEL_ORDER', id: order.id }));
+                }
+            };
+
+            actionButtons.appendChild(deliverButton);
+            actionButtons.appendChild(cancelButton);
+
+            return actionButtons;
+        }
+    </script>
+</body>
+</html>

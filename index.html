@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restoran Ekranı</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        input[type="text"], select {
+            padding: 10px;
+            margin: 5px 0;
+            width: calc(100% - 22px);
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px 0;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background: #fff;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+        }
+        .cancel-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .cancel-button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Restoran Sipariş Ekranı</h1>
+    <form id="orderForm">
+        <input type="text" id="address" placeholder="Adres" required />
+        <select id="store" required>
+            <option value="">Mağaza Seçiniz</option>
+            <option value="Mağaza 1">Mağaza 1</option>
+            <option value="Mağaza 2">Mağaza 2</option>
+        </select>
+        <button type="submit">Sipariş Ekle</button>
+    </form>
+    <h2>Mevcut Siparişler</h2>
+    <ul id="orderList"></ul>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:3000');
+
+        // Sayfa yüklendiğinde mevcut siparişleri al
+        window.onload = () => {
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'GET_CURRENT_ORDERS' })); // Mevcut siparişleri istemek için mesaj gönder
+            };
+        };
+
+        // Sipariş ekleme formu
+        document.getElementById('orderForm').onsubmit = (event) => {
+            event.preventDefault();
+            const address = document.getElementById('address').value;
+            const store = document.getElementById('store').value;
+
+            const newOrder = { type: 'NEW_ORDER', address, store };
+            ws.send(JSON.stringify(newOrder)); // Sipariş verilerini gönder
+            document.getElementById('address').value = '';
+        };
+
+        // WebSocket mesajlarını işleme
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'ORDER_ADDED') {
+                addOrderToList(data.order);
+            } else if (data.type === 'ORDER_CANCELLED') {
+                removeOrderFromList(data.id);
+            } else if (data.type === 'CURRENT_ORDERS') {
+                data.orders.forEach(order => addOrderToList(order)); // Mevcut siparişleri listeye ekle
+            }
+        };
+
+        // Siparişi listeye ekleme
+        function addOrderToList(order) {
+            const list = document.getElementById('orderList');
+            // Siparişin zaten listede olup olmadığını kontrol et
+            if (!document.getElementById(`order-${order.id}`)) {
+                const listItem = document.createElement('li');
+                listItem.id = `order-${order.id}`;
+                listItem.textContent = `Adres: ${order.address}, Mağaza: ${order.store}, Durum: ${order.status}`;
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'İptal Et';
+                cancelButton.className = 'cancel-button';
+                cancelButton.onclick = () => {
+                    if (confirm('Bu siparişi iptal etmek istediğinizden emin misiniz?')) {
+                        ws.send(JSON.stringify({ type: 'CANCEL_ORDER', id: order.id }));
+                    }
+                };
+
+                listItem.appendChild(cancelButton);
+                list.appendChild(listItem);
+            }
+        }
+
+        // Siparişi listeden kaldırma
+        function removeOrderFromList(id) {
+            const listItem = document.getElementById(`order-${id}`);
+            if (listItem) {
+                listItem.remove();
+            }
+        }
+    </script>
+</body>
+</html>
